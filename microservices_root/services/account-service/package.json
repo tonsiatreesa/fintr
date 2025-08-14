@@ -1,0 +1,13 @@
+{
+  "name": "account-service",
+  "version": "1.0.0",
+  "main": "index-simple.js",
+  "scripts": {
+    "start": "node index-simple.js",
+    "dev": "node index-simple.js"
+  },
+  "dependencies": {
+    "hono": "^4.3.2",
+    "@hono/node-server": "^1.11.1"
+  }
+}
