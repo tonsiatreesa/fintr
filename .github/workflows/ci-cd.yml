@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, staging]
   pull_request:
     branches: [main]
 
@@ -46,7 +46,11 @@ jobs:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
     needs: test
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/staging'
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+      environment: ${{ steps.set-env.outputs.environment }}
 
     steps:
       - name: Checkout code
@@ -63,33 +67,78 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set image tag
-        id: set-tag
+      - name: Set environment and image tag
+        id: set-env
         run: |
           if [[ $GITHUB_REF == 'refs/heads/main' ]]; then
             echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "environment=prod" >> $GITHUB_OUTPUT
           elif [[ $GITHUB_REF == 'refs/heads/develop' ]]; then
             echo "tag=develop" >> $GITHUB_OUTPUT
+            echo "environment=dev" >> $GITHUB_OUTPUT
+          elif [[ $GITHUB_REF == 'refs/heads/staging' ]]; then
+            echo "tag=staging" >> $GITHUB_OUTPUT
+            echo "environment=staging" >> $GITHUB_OUTPUT
           fi
 
       - name: Build, tag, and push image to Amazon ECR
+        id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ steps.set-tag.outputs.tag }}
+          IMAGE_TAG: ${{ steps.set-env.outputs.tag }}
         run: |
           # Create ECR repository if it doesn't exist
           aws ecr describe-repositories --repository-names $ECR_REPOSITORY || \
           aws ecr create-repository --repository-name $ECR_REPOSITORY
           
           # Build and push Docker image
-          docker build -f Dockerfile.prod -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker build -f Dockerfile.prod -t $IMAGE_URI .
+          docker push $IMAGE_URI
           
-          echo "Image pushed to $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "Image pushed to $IMAGE_URI"
+          echo "image-uri=$IMAGE_URI" >> $GITHUB_OUTPUT
 
-      - name: Output image URI
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/staging'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to ECS Fargate
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ steps.set-tag.outputs.tag }}
+          ENVIRONMENT: ${{ needs.build-and-push.outputs.environment }}
+          IMAGE_URI: ${{ needs.build-and-push.outputs.image-uri }}
         run: |
-          echo "Docker image URI: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "🚀 Deploying to $ENVIRONMENT environment"
+          echo "📦 Image URI: $IMAGE_URI"
+          
+          # Run deployment script
+          ./infrastructure/deploy.sh $ENVIRONMENT $IMAGE_URI
+
+      - name: Get deployment URL
+        env:
+          ENVIRONMENT: ${{ needs.build-and-push.outputs.environment }}
+        run: |
+          STACK_NAME="fintr-$ENVIRONMENT"
+          LB_DNS=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' \
+            --output text)
+          
+          echo "🌐 Application deployed to: http://$LB_DNS"
+          echo "### 🚀 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+          echo "**Application URL:** http://$LB_DNS" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ needs.build-and-push.outputs.image-uri }}" >> $GITHUB_STEP_SUMMARY
