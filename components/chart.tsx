@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AreaChart, BarChart3, FileSearch, LineChart, Loader2 } from "lucide-react";
 
-import { usePaywall } from "@/features/subscriptions/hooks/use-paywall";
+import { usePaywall } from "@/hooks/use-paywall";
 
 import { 
   Select, 

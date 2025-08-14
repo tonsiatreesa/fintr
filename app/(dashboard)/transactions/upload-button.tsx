@@ -1,7 +1,7 @@
 import { Upload } from "lucide-react";
 import { useCSVReader } from "react-papaparse";
 
-import { usePaywall } from "@/features/subscriptions/hooks/use-paywall";
+import { usePaywall } from "@/hooks/use-paywall";
 
 import { Button } from "@/components/ui/button";
 
