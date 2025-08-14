@@ -1,14 +1,23 @@
 const { Hono } = require("hono");
 const { serve } = require("@hono/node-server");
-const { cors } = require("hono/cors");
 
 const app = new Hono();
 
-// Enable CORS for frontend
-app.use("/*", cors({
-  origin: ["http://localhost:3000", "http://frontend:3000"],
-  credentials: true,
-}));
+// Manual CORS middleware
+app.use("*", async (c, next) => {
+  // Set CORS headers
+  c.header("Access-Control-Allow-Origin", "*");
+  c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  c.header("Access-Control-Allow-Credentials", "true");
+  
+  // Handle preflight requests
+  if (c.req.method === "OPTIONS") {
+    return c.text("", 204);
+  }
+  
+  await next();
+});
 
 // Service URLs - these would be environment variables in production
 const ACCOUNT_SERVICE_URL = process.env.ACCOUNT_SERVICE_URL || "http://account-service:4002";
@@ -84,6 +93,12 @@ app.get("/debug/routes", (c) => {
 });
 
 // Route definitions with proper path handling
+app.all("/api/accounts", async (c) => {
+  console.log("Route matched: /api/accounts", c.req.path);
+  console.log("Proxying to:", ACCOUNT_SERVICE_URL, "/");
+  return proxyRequest(c, ACCOUNT_SERVICE_URL, "/");
+});
+
 app.all("/api/accounts/*", async (c) => {
   console.log("Route matched: /api/accounts/*", c.req.path);
   const path = c.req.path.replace("/api/accounts", "");
@@ -91,10 +106,8 @@ app.all("/api/accounts/*", async (c) => {
   return proxyRequest(c, ACCOUNT_SERVICE_URL, path);
 });
 
-app.all("/api/accounts", async (c) => {
-  console.log("Route matched: /api/accounts", c.req.path);
-  console.log("Proxying to:", ACCOUNT_SERVICE_URL, "/");
-  return proxyRequest(c, ACCOUNT_SERVICE_URL, "/");
+app.all("/api/transactions", async (c) => {
+  return proxyRequest(c, TRANSACTION_SERVICE_URL, "/");
 });
 
 app.all("/api/transactions/*", async (c) => {
@@ -102,17 +115,13 @@ app.all("/api/transactions/*", async (c) => {
   return proxyRequest(c, TRANSACTION_SERVICE_URL, path);
 });
 
-app.all("/api/transactions", async (c) => {
-  return proxyRequest(c, TRANSACTION_SERVICE_URL, "/");
+app.all("/api/categories", async (c) => {
+  return proxyRequest(c, CATEGORY_SERVICE_URL, "/");
 });
 
 app.all("/api/categories/*", async (c) => {
   const path = c.req.path.replace("/api/categories", "");
   return proxyRequest(c, CATEGORY_SERVICE_URL, path);
-});
-
-app.all("/api/categories", async (c) => {
-  return proxyRequest(c, CATEGORY_SERVICE_URL, "/");
 });
 
 app.all("/api/summary/*", async (c) => {

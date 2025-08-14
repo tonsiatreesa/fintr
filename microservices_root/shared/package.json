@@ -1,11 +1,9 @@
 {
   "name": "@fintr/shared",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "database.js",
+  "description": "Shared database utilities for fintr microservices",
   "dependencies": {
-    "drizzle-orm": "^0.30.10",
-    "drizzle-zod": "^0.5.1",
-    "@neondatabase/serverless": "^0.9.3",
-    "zod": "^3.23.6"
+    "pg": "^8.11.3"
   }
 }
