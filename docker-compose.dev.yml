@@ -1,9 +1,8 @@
 services:
-  # Next.js Application
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -16,3 +15,8 @@ services:
       - CLERK_PUBLISHABLE_KEY=pk_test_YWxlcnQtY2FyaWJvdS03MS5jbGVyay5hY2NvdW50cy5kZXYk
       - NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
       - NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+    volumes:
+      # Mount source code for hot reload
+      - .:/app
+      - /app/node_modules
+      - /app/.next
