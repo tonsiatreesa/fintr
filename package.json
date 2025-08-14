@@ -12,6 +12,7 @@
     "db:migrate:docker": "node ./scripts/migrate-docker.mjs",
     "db:seed": "bun ./scripts/seed.ts",
     "db:seed:docker": "node ./scripts/seed-docker.mjs",
+    "db:update-userid": "node ./scripts/update-userid.mjs",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
