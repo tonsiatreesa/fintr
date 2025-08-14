@@ -1,7 +1,7 @@
 # Simple development Dockerfile
 FROM node:18-alpine
 
-# Set working directory
+# Set working directorys
 WORKDIR /app
 
 # Copy package files
