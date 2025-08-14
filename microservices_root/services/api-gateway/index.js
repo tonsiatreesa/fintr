@@ -1,7 +1,14 @@
 const { Hono } = require("hono");
 const { serve } = require("@hono/node-server");
+const { cors } = require("hono/cors");
 
 const app = new Hono();
+
+// Enable CORS for frontend
+app.use("/*", cors({
+  origin: ["http://localhost:3000", "http://frontend:3000"],
+  credentials: true,
+}));
 
 // Service URLs - these would be environment variables in production
 const ACCOUNT_SERVICE_URL = process.env.ACCOUNT_SERVICE_URL || "http://account-service:4002";
@@ -46,10 +53,48 @@ async function proxyRequest(c, serviceUrl, path) {
   }
 }
 
-// Route definitions
+// Health check
+app.get("/health", (c) => {
+  return c.json({ status: "ok", service: "api-gateway" });
+});
+
+// Simple test route
+app.get("/test", (c) => {
+  return c.json({ message: "Test route working" });
+});
+
+// Debug route to test routing
+app.get("/debug/routes", (c) => {
+  return c.json({
+    message: "API Gateway Routes Debug",
+    routes: [
+      "/api/accounts",
+      "/api/accounts/*",
+      "/api/transactions",
+      "/api/transactions/*",
+      "/api/categories",
+      "/api/categories/*"
+    ],
+    services: {
+      ACCOUNT_SERVICE_URL,
+      TRANSACTION_SERVICE_URL,
+      CATEGORY_SERVICE_URL
+    }
+  });
+});
+
+// Route definitions with proper path handling
 app.all("/api/accounts/*", async (c) => {
+  console.log("Route matched: /api/accounts/*", c.req.path);
   const path = c.req.path.replace("/api/accounts", "");
+  console.log("Proxying to:", ACCOUNT_SERVICE_URL, "path:", path);
   return proxyRequest(c, ACCOUNT_SERVICE_URL, path);
+});
+
+app.all("/api/accounts", async (c) => {
+  console.log("Route matched: /api/accounts", c.req.path);
+  console.log("Proxying to:", ACCOUNT_SERVICE_URL, "/");
+  return proxyRequest(c, ACCOUNT_SERVICE_URL, "/");
 });
 
 app.all("/api/transactions/*", async (c) => {
@@ -57,30 +102,43 @@ app.all("/api/transactions/*", async (c) => {
   return proxyRequest(c, TRANSACTION_SERVICE_URL, path);
 });
 
+app.all("/api/transactions", async (c) => {
+  return proxyRequest(c, TRANSACTION_SERVICE_URL, "/");
+});
+
 app.all("/api/categories/*", async (c) => {
   const path = c.req.path.replace("/api/categories", "");
   return proxyRequest(c, CATEGORY_SERVICE_URL, path);
 });
 
+app.all("/api/categories", async (c) => {
+  return proxyRequest(c, CATEGORY_SERVICE_URL, "/");
+});
+
 app.all("/api/summary/*", async (c) => {
-  const path = c.req.path.replace("/api/summary", "");
+  const path = c.req.path.replace("/api/summary", "/api/summary");
   return proxyRequest(c, ANALYTICS_SERVICE_URL, path);
 });
 
+app.all("/api/summary", async (c) => {
+  return proxyRequest(c, ANALYTICS_SERVICE_URL, "/api/summary");
+});
+
 app.all("/api/plaid/*", async (c) => {
-  const path = c.req.path.replace("/api/plaid", "");
+  const path = c.req.path.replace("/api/plaid", "/api/plaid");
   return proxyRequest(c, PLAID_SERVICE_URL, path);
 });
 
 app.all("/api/subscriptions/*", async (c) => {
-  const path = c.req.path.replace("/api/subscriptions", "");
+  const path = c.req.path.replace("/api/subscriptions", "/api/subscriptions");
   return proxyRequest(c, SUBSCRIPTION_SERVICE_URL, path);
 });
 
-// Health check
-app.get("/health", (c) => {
-  return c.json({ status: "ok", service: "api-gateway" });
+app.all("/api/subscriptions", async (c) => {
+  return proxyRequest(c, SUBSCRIPTION_SERVICE_URL, "/api/subscriptions");
 });
+
+// Removed duplicate health check - already defined above
 
 const port = process.env.PORT || 4000;
 
