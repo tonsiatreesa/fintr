@@ -1,0 +1,27 @@
+services:
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - DATABASE_URL=postgresql://neondb_owner:npg_flItXS30KnaU@ep-holy-butterfly-aeg5gfmb-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      # Add your other environment variables here
+      # - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_key
+      # - CLERK_SECRET_KEY=your_clerk_secret
+      # - PLAID_CLIENT_TOKEN=your_plaid_token
+      # - PLAID_SECRET_TOKEN=your_plaid_secret
+      # - LEMONSQUEEZY_STORE_ID=your_store_id
+      # - LEMONSQUEEZY_PRODUCT_ID=your_product_id
+      # - LEMONSQUEEZY_API_KEY=your_api_key
+      # - LEMONSQUEEZY_WEBHOOK_SECRET=your_webhook_secret
+    volumes:
+      - ./.env.local:/app/.env.local:ro
+
+volumes:
+  postgres_data:
